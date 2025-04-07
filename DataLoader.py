@@ -6,20 +6,23 @@ class DataLoader:
 
     def get_data(self, ticker, time_range):
         """
-        time_range values: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
+        time_range values: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
         """    
 
-        # # getting stock data
+        # getting stock data
         data = yahooFinance.Ticker(ticker).history(period=time_range)
 
-        # setting index name to datetime
+        # converting datetime index
         data.index.name = 'datetime'
+        data.index = data.index.strftime('%Y-%m-%d')
+        data.reset_index(inplace=True)
+        
 
         # naming columns
-        # data.columns = ['open', 'high', 'low', 'close', 'volume', 'dividends', 'stock_splits']
+        data.columns = ['date', 'open', 'high', 'low', 'close', 'volume', 'dividends', 'stock_splits']
 
         # saving data (ignoring dividends and stock_splits as they are empty)
-        self.raw_data = data.loc[:,['open', 'close', 'high', 'low', 'volume']]
+        self.raw_data = data.loc[:,['date', 'open', 'close', 'high', 'low', 'volume']]
 
     def get_data_locally(self, ticker):
 
