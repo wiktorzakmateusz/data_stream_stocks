@@ -224,7 +224,7 @@ class DataLoader:
         #########################
 
         # setting target based on 'target_range' (range of prediction)
-        data['target'] = (data['close'].shift(-self.target_range) - data['close']).apply(lambda x: 1 if x > 0 else -1)
+        data['target'] = (data['close'].shift(-self.target_range) - data['close']).apply(lambda x: 1 if x > 0 else 0)
         
         # dropping N/A records that occured due to feature engineering
         data = data.iloc[250: -self.target_range, :]
