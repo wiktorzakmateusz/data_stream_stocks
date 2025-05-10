@@ -1,0 +1,11 @@
+ensemble_name,model_name,drift_name,feature_selector_name,learning_threshold,iteration,accuracy,drifts_detected,model_args,ticker
+ensemble,hoeffdingtreeclassifier,adwin,selectkbest,1000,1,0.518,0,{},AAPL
+ensemble,hoeffdingtreeclassifier,adwin,selectkbest,1000,1,0.503,0,{},AAPL
+ensemble,hoeffdingtreeclassifier,adwin,selectkbest,1000,1,0.51,0,{},AAPL
+ensemble,hoeffdingtreeclassifier,adwin,selectkbest,1000,1,0.508,0,{},AAPL
+ensemble,hoeffdingtreeclassifier,adwin,selectkbest,1000,1,0.502,0,{},AAPL
+ensemble,extremelyfastdecisiontreeclassifier,adwin,selectkbest,1000,1,0.518,0,{},AAPL
+ensemble,extremelyfastdecisiontreeclassifier,adwin,selectkbest,1000,1,0.502,0,{},AAPL
+ensemble,extremelyfastdecisiontreeclassifier,adwin,selectkbest,1000,1,0.528,0,{},AAPL
+ensemble,extremelyfastdecisiontreeclassifier,adwin,selectkbest,1000,1,0.498,0,{},AAPL
+ensemble,extremelyfastdecisiontreeclassifier,adwin,selectkbest,1000,1,0.498,0,{},AAPL
