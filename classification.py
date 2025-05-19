@@ -535,3 +535,196 @@ class StockPredictor:
         metrics_result_df = metrics_result_df.round(3)
         
         return round(accuracy.get() if accuracy is not None else 0.0, 3), metrics_result_df
+
+class BaseModelStockPredictor:
+
+    def __init__(self, stock_data, model_name, drift_name, feature_selector_name, num_features=15,
+                 provided_model=None, provided_detector=None, provided_feature_selector=None,
+                 learning_threshold = 1000):
+        self.stock_data = stock_data
+        self.data_stream = BaseModelStockPredictor.ohlc_stream(stock_data)
+        self.metric = metrics.ClassificationReport()
+        self.learning_threshold = learning_threshold
+        self.drifts_detected = 0
+
+        self.model_name = model_name
+        self.provided_model = provided_model
+        if provided_model:
+            self.model = provided_model
+            self.is_incremental = hasattr(provided_model, 'learn_one')
+        else:
+            self.model, self.is_incremental = BaseModelStockPredictor.get_model(model_name)
+
+        if self.is_incremental:
+            self.feature_selector_name = feature_selector_name
+            self.feature_selector = provided_feature_selector or BaseModelStockPredictor.get_feature_selector(feature_selector_name, num_features)
+            self.pipeline = BaseModelStockPredictor.get_pipeline(self.model, self.feature_selector)
+            
+        else:
+            self.feature_selector_name = feature_selector_name
+            self.feature_selector = provided_feature_selector or BaseModelStockPredictor.get_feature_selector(feature_selector_name, num_features)
+            self.pipeline = BaseModelStockPredictor.get_sklearn_pipeline(self.model, self.feature_selector)
+
+        self.drift_name = drift_name
+        self.drift_detector = provided_detector or BaseModelStockPredictor.get_drift_detector(drift_name)
+
+    @staticmethod
+    def ohlc_stream(df):
+        for _, row in df.iterrows():
+            features = row.iloc[:-1].to_dict()
+            yield features, row['target']
+
+    @staticmethod
+    def get_model(name: str):
+        name = name.lower()
+        if name == 'hoeffdingtreeclassifier':
+            return tree.HoeffdingTreeClassifier(), True
+        if name == 'extremelyfastdecisiontreeclassifier':
+            return tree.ExtremelyFastDecisionTreeClassifier(), True
+        
+        # non incremental below:
+        if name == 'mlp':
+            return MLPClassifier(hidden_layer_sizes=(50,), learning_rate_init=1e-4, max_iter=200), False
+        if name == 'xgboost':
+            return XGBClassifier(), False
+        if name == 'lgbm':
+            return LGBMClassifier(verbosity=0), False
+        if name == 'randomforest':
+            return RandomForestClassifier(), False
+        else:
+            raise ValueError(f"Unknown model")
+
+    @staticmethod
+    def get_drift_detector(name: str):
+        name = name.lower()
+        if name == "adwin":
+            return drift.ADWIN()
+        elif name == "kswin":
+            return drift.KSWIN()
+        elif name == "dummydriftdetector":
+            return drift.DummyDriftDetector()
+        elif name == "pagehinkley":
+            return drift.PageHinkley()
+        elif name == 'bollingerband':
+            return BollingerBandDriftDetector()
+        else:
+            raise ValueError(f"Unknown detector")
+
+    @staticmethod
+    def get_feature_selector(name: str, num_features):
+        name = name.lower()
+        if name == "selectkbest":
+            return feature_selection.SelectKBest(similarity=stats.PearsonCorr(), k=num_features)
+        elif name == 'selectkbest_sklearn':
+            return SelectKBest(score_func=f_classif, k=num_features)
+        elif name == 'tstat':
+            return TStatFeatureSelector(k=num_features, update_interval=100)
+        else:
+            raise ValueError(f"Unknown selector")
+
+    @staticmethod
+    def get_pipeline(model, feature_selector):
+        scaler = preprocessing.StandardScaler()
+        pipeline = scaler | feature_selector | model
+        return pipeline
+
+    @staticmethod
+    def get_sklearn_pipeline(model, feature_selector):
+        scaler = MinMaxScaler()
+        selector = feature_selector
+        model = model
+        pipeline = Pipeline([
+            ('scaler', scaler),
+            ('selector', selector),
+            ('mlp', model)
+        ])
+    
+        return pipeline
+    
+    def prediction(self):
+
+        if self.is_incremental:
+            for i, (x, y) in enumerate(self.data_stream):
+                close_value = float(self.stock_data.loc[i, 'close'])
+                if i >= self.learning_threshold:
+
+                    y_pred = self.pipeline.predict_one(x)
+                    self.pipeline.learn_one(x, y)
+
+                    error = int(y_pred != y) if y_pred is not None else 0
+                    if self.drift_name == 'bollingerband':
+                        self.drift_detector.update(close_value)
+                    else:
+                        self.drift_detector.update(error)
+
+                    if y_pred is not None:
+                        self.metric.update(y, y_pred)
+
+                    if self.drift_detector.drift_detected:
+                        self.drifts_detected += 1
+                        # print(f'Drift detected at index {i}! ({self.drift_name})')
+
+                        # resets model
+                        if self.provided_model:
+                            self.model = self.provided_model
+                        else:
+                            self.model, _ = BaseModelStockPredictor.get_model(self.model_name)
+
+                        self.pipeline = BaseModelStockPredictor.get_pipeline(self.model, self.feature_selector)
+        
+        else:
+
+            buffer = FixedSizeBuffer(max_size=self.learning_threshold, num_features=self.stock_data.shape[1] - 1)
+            for i, (x, y) in enumerate(self.data_stream):
+                close_value = float(self.stock_data.loc[i, 'close'])
+                x_array = np.array(list(x.values())).reshape(1, -1)
+                buffer.append(x_array[0])
+                buffer.append_label(y)
+                
+                if i >= self.learning_threshold and (i % self.learning_threshold == 0 or self.drift_detector.drift_detected):
+                    X_train, y_train = buffer.get_data()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        self.pipeline.fit(X_train, y_train) # MLP produces warnings!
+
+                if i >= self.learning_threshold:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        y_pred = self.pipeline.predict(x_array)[0]
+                    error = int(y_pred != y)
+                    if self.drift_name == 'bollingerband':
+                        self.drift_detector.update(close_value)
+                    else:
+                        self.drift_detector.update(error)
+                        
+                    self.metric.update(y, y_pred)
+
+                    if self.drift_detector.drift_detected:
+                        self.drifts_detected += 1
+                        # print(f'Drift detected at index {i}! ({self.drift_name})')
+
+
+        accuracy, metrics_result = self.get_metrics()
+        # print(f'accuracy: {accuracy}')
+        # display(metrics_result)
+        return accuracy, metrics_result
+
+    def get_metrics(self):
+
+        classes = sorted(self.metric.cm.classes)
+
+        for c in classes:
+            if c not in self.metric._f1s:
+                self.metric._f1s[c] = metrics.F1(cm=self.metric.cm, pos_val=c)
+        
+        accuracy = round(self.metric._accuracy.get(), 3)
+
+        # print(self.metric._f1s)
+        metrics_result = pd.DataFrame([ [0, self.metric._f1s[0].precision.get(), self.metric._f1s[0].recall.get(), self.metric._f1s[0].get()],
+                                        [1, self.metric._f1s[1].precision.get(), self.metric._f1s[1].recall.get(), self.metric._f1s[1].get()]],
+                                        columns=['class', 'precision', 'recall', 'f1'])
+        
+        metrics_result = metrics_result.round(3)
+
+        return accuracy, metrics_result
+    
