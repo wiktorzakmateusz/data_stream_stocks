@@ -10,6 +10,7 @@ from river import drift
 from river import stats
 from river import ensemble as river_ensemble
 from river import base
+from river import dummy
 from collections import deque, Counter
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline as SklearnPipeline
@@ -581,6 +582,10 @@ class BaseModelStockPredictor:
             return tree.HoeffdingTreeClassifier(), True
         if name == 'extremelyfastdecisiontreeclassifier':
             return tree.ExtremelyFastDecisionTreeClassifier(), True
+        if name == 'nochange':
+            return dummy.NoChangeClassifier(), True
+        if name == 'majorityclass':
+            return dummy.PriorClassifier(), True
         
         # non incremental below:
         if name == 'mlp':
