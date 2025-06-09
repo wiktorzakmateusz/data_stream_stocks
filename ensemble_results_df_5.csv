@@ -1,0 +1,6 @@
+ensemble_name,model_name,drift_name,feature_selector_name,learning_threshold,iteration,accuracy,drifts_detected,model_args,ticker
+extremelyfastdecisiontreeclassifier,BaggingClassifier,adwin,selectkbest,1000,1,0.534,1,{},AAPL
+extremelyfastdecisiontreeclassifier,AdaBoostClassifier,adwin,selectkbest,1000,1,0.518,1,{},AAPL
+extremelyfastdecisiontreeclassifier,ADWINBaggingClassifier,adwin,selectkbest,1000,1,0.551,1,{},AAPL
+extremelyfastdecisiontreeclassifier,SRPClassifier,adwin,selectkbest,1000,1,0.53,0,{},AAPL
+extremelyfastdecisiontreeclassifier,LeveragingBaggingClassifier,adwin,selectkbest,1000,1,0.517,1,{},AAPL

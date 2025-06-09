@@ -239,8 +239,8 @@ class DataLoader:
         # storing data to class variable
         self.data_with_target = data
 
-    def pipeline(self, ticker):
-        self.get_data('AAPL', 'max')
+    def pipeline(self, ticker, time_range='max'):
+        self.get_data(ticker, time_range)
         self.raw_data.drop('date', axis=1, inplace=True)
         self.add_features_and_target()
         

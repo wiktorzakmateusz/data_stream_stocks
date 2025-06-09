@@ -21,6 +21,7 @@ from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 import warnings
 from sklearn.base import clone
+from itertools import product
 
 SUPPORTED_RIVER_ENSEMBLES = ['BaggingClassifier', 'AdaBoostClassifier', 'ADWINBaggingClassifier', 'VotingClassifier', 'SRPClassifier', 'LeveragingBaggingClassifier']
 
@@ -733,3 +734,92 @@ class BaseModelStockPredictor:
 
         return accuracy, metrics_result
     
+def provide_hoeffdingtreeclassifier(args, args_values):
+    models = []
+    arg_strings = []
+
+    for values in product(*args_values):
+        kwargs = dict(zip(args, values))
+        model = tree.HoeffdingTreeClassifier(**kwargs)
+        models.append(model)
+
+        # Create readable string representation
+        args_str = ', '.join(f"{key}={value}" for key, value in kwargs.items())
+        arg_strings.append(args_str)
+
+    return models, arg_strings
+
+def provide_extremelyfastdecisiontreeclassifier(args, args_values):
+    models = []
+    arg_strings = []
+
+    for values in product(*args_values):
+        kwargs = dict(zip(args, values))
+        model = tree.ExtremelyFastDecisionTreeClassifier(**kwargs)
+        models.append(model)
+
+        # Create readable string representation
+        args_str = ', '.join(f"{key}={value}" for key, value in kwargs.items())
+        arg_strings.append(args_str)
+
+    return models, arg_strings
+
+def provide_mlp(args, args_values):
+    models = []
+    arg_strings = []
+
+    for values in product(*args_values):
+        kwargs = dict(zip(args, values))
+        model = MLPClassifier(**kwargs)
+        models.append(model)
+
+        # Create readable string representation
+        args_str = ', '.join(f"{key}={value}" for key, value in kwargs.items())
+        arg_strings.append(args_str)
+
+    return models, arg_strings
+
+def provide_xgboost(args, args_values):
+    models = []
+    arg_strings = []
+
+    for values in product(*args_values):
+        kwargs = dict(zip(args, values))
+        model = XGBClassifier(**kwargs)
+        models.append(model)
+
+        # Create readable string representation
+        args_str = ', '.join(f"{key}={value}" for key, value in kwargs.items())
+        arg_strings.append(args_str)
+
+    return models, arg_strings
+
+def provide_lgbm(args, args_values):
+    models = []
+    arg_strings = []
+
+    for values in product(*args_values):
+        kwargs = dict(zip(args, values))
+        model = LGBMClassifier(**kwargs)
+        models.append(model)
+
+        # Create readable string representation
+        args_str = ', '.join(f"{key}={value}" for key, value in kwargs.items())
+        arg_strings.append(args_str)
+
+    return models, arg_strings
+
+def provide_randomforest(args, args_values):
+    models = []
+    arg_strings = []
+
+    for values in product(*args_values):
+        kwargs = dict(zip(args, values))
+        model = RandomForestClassifier(**kwargs)
+        models.append(model)
+
+        # Create readable string representation
+        args_str = ', '.join(f"{key}={value}" for key, value in kwargs.items())
+        arg_strings.append(args_str)
+
+    return models, arg_strings
